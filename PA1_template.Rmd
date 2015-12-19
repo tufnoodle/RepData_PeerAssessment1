@@ -7,7 +7,7 @@ output:
 
 
 ## Loading and preprocessing the data
-To help preprocess the data for later analysis, the following packages will be loaded up:
+###To help preprocess the data for later analysis, the following packages will be loaded up:
 
 ```{r load libraries for later}
 library(dplyr)
@@ -15,33 +15,33 @@ library(tidyr)
 library(ggplot2)
 library(knitr)
 ```
-
-Reading in the data:
+  
+###Reading in the data:
 ```{r read in data}
 setwd("D:/Classes/Data Science Track (Johns Hopkins)/05 Reproducible Research/Week 2/Peer Assesment 1/RepData_PeerAssessment1")
 dat <- read.csv("activity.csv")
 dat <- tbl_df(dat)
 ```
-
-Preprocessing the data to remove the >2,000 observations with NA for steps
+  
+###Preprocessing the data to remove the >2,000 observations with NA for steps
 ```{r remove NA observations}
 datClean <- filter(dat, !is.na(steps))
 ```
-
-## What is mean total number of steps taken per day?
   
-Steps taken by day:
+## What is mean total number of steps taken per day?
+    
+###Steps taken by day:
 ```{r group data by day}
 steps <-
     datClean %>%
-        select(steps:date) %>%
-        group_by(date) %>%
-        summarize(sum(steps))
+    select(steps:date) %>%
+    group_by(date) %>%
+    summarize(sum(steps))
         
 print.data.frame(steps)
 ```
-
-Histogram showing the distribution and frequency of the total steps taken each day:
+  
+###Histogram showing the distribution and frequency of the total steps taken each day:
 ```{r create histogram for total steps taken per day}
 qplot(steps$`sum(steps)`,
       data = steps,
@@ -50,45 +50,113 @@ qplot(steps$`sum(steps)`,
       ylab = "Frequency",
       main = "Total Steps Taken Each Day")
 ```
+  
+###The mean and median of the total number of steps taken per day:
 
-The mean and median of the total number of steps taken per day:
+
 ```{r group data by day DELETE}
 stepsSum <-
     steps %>%
-        summarize(mean(steps$`sum(steps)`), median(steps$`sum(steps)`))
+    summarize(Mean = mean(steps$`sum(steps)`), Median = median(steps$`sum(steps)`))
 
-stepSumRename <- data.frame(stepsSum)
-colnames(stepSumRename) <- c("Mean", "Median")
-print(stepSumRename)
+print(stepsSum)
 ```
-
-
+  
 ## What is the average daily activity pattern?
-
+  
 ```{r remove dates, group by interval}
 byInterval <-
     datClean %>%
     select(-date) %>%
-    mutate(interval = factor(interval)) %>%
     group_by(interval) %>%
-    summarize(mean = mean(steps)) %>%
-    mutate(interval = as.numeric(interval))
+    summarize(mean = mean(steps)) 
 
 plot(byInterval, type="l",
      xlab="Interval",
      ylab="Number of Steps",
      main="Daily Activity Pattern")
 ```
-
-Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+  
+###Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
 ```{r find the interval w/ max steps}
 byInterval %>%
     filter(mean == max(mean)) %>%
     print
 ```
-
+  
 ## Imputing missing values
 
+###Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
+```{r filter for NAs}
+missingValues <- filter(dat, is.na(steps))
 
+sum(is.na(missingValues$steps))
+```
+  
+###We're going to fill in the missing 2,304 step observations by using the mean number of steps for that interval.  
+```{r fill in missing values}
+imputedDat <- merge(dat, byInterval)
+imputedDat$steps[is.na(imputedDat$steps)] <- imputedDat$mean[is.na(imputedDat$steps)]
+
+```
+  
+###Histogram of the total number of steps taken each day 
+```{r histogram of imputedDat}
+imputedDatbyDay <-
+    imputedDat %>%
+    group_by(date) %>%
+    summarize(sum(steps))
+
+qplot(imputedDatbyDay$`sum(steps)`,
+      binwidth = 2500,
+      xlab = "Total Steps",
+      ylab = "Frequency",
+      main = "Total Steps Taken Each Day (Imputed Data)")
+```
+  
+###Mean and median of the total number of steps taken per day when using the imputed data:
+```{r calc new mean and median}
+imputedStepsSum <-
+    imputedDatbyDay %>%
+    summarize(Mean = mean(imputedDatbyDay$`sum(steps)`), Median = median(imputedDatbyDay$`sum(steps)`)) 
+
+print(imputedStepsSum)
+```
+
+###Impact of including imputed data  
+```{r calc changes}
+meanChange <- stepsSum$Mean - imputedStepsSum$Mean
+medianChange <- stepsSum$Median - imputedStepsSum$Median
+
+print(meanChange)
+print(medianChange)
+```
+
+The mean did not change, although the median decreased by 1.19 steps per day.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+###Create new factor variable showing whether each day is a weekday or weekend
+```{r convert factor to date and add new factor for weekday/weekend}
+imputedDatWeekday <- imputedDat
+imputedDatWeekday$date <- as.Date(imputedDatWeekday$date)
+
+# imputedDatWeekday %>%
+#     mutate(DayOfWeek = ifelse(weekdays(date) == c("Saturday", "Sunday"), "Weekend", "Weekday"))
+
+imputedDatWeekday <- mutate(imputedDatWeekday, DayOfWeek = ifelse(weekdays(date) == c("Saturday", "Sunday"), "Weekend", "Weekday"))
+```
+
+###Weekdays vs Weekends  
+
+```{r line graph weekdays vs weekends}
+imputedDatWeekdayInterval <-
+    imputedDatWeekday %>%
+    group_by(DayOfWeek, interval) %>%
+    summarize(mean = mean(steps)) 
+
+qplot(interval, 
+      mean, 
+      data = imputedDatWeekdayInterval, 
+      geom = "line") + facet_grid( DayOfWeek ~ .)
+```
