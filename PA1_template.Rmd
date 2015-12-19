@@ -7,16 +7,85 @@ output:
 
 
 ## Loading and preprocessing the data
+To help preprocess the data for later analysis, the following packages will be loaded up:
 
+```{r load libraries for later}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(knitr)
+```
 
+Reading in the data:
+```{r read in data}
+setwd("D:/Classes/Data Science Track (Johns Hopkins)/05 Reproducible Research/Week 2/Peer Assesment 1/RepData_PeerAssessment1")
+dat <- read.csv("activity.csv")
+dat <- tbl_df(dat)
+```
+
+Preprocessing the data to remove the >2,000 observations with NA for steps
+```{r remove NA observations}
+datClean <- filter(dat, !is.na(steps))
+```
 
 ## What is mean total number of steps taken per day?
+  
+Steps taken by day:
+```{r group data by day}
+steps <-
+    datClean %>%
+        select(steps:date) %>%
+        group_by(date) %>%
+        summarize(sum(steps))
+        
+print.data.frame(steps)
+```
 
+Histogram showing the distribution and frequency of the total steps taken each day:
+```{r create histogram for total steps taken per day}
+qplot(steps$`sum(steps)`,
+      data = steps,
+      binwidth = 2500,
+      xlab = "Total Steps",
+      ylab = "Frequency",
+      main = "Total Steps Taken Each Day")
+```
+
+The mean and median of the total number of steps taken per day:
+```{r group data by day DELETE}
+stepsSum <-
+    steps %>%
+        summarize(mean(steps$`sum(steps)`), median(steps$`sum(steps)`))
+
+stepSumRename <- data.frame(stepsSum)
+colnames(stepSumRename) <- c("Mean", "Median")
+print(stepSumRename)
+```
 
 
 ## What is the average daily activity pattern?
 
+```{r remove dates, group by interval}
+byInterval <-
+    datClean %>%
+    select(-date) %>%
+    mutate(interval = factor(interval)) %>%
+    group_by(interval) %>%
+    summarize(mean = mean(steps)) %>%
+    mutate(interval = as.numeric(interval))
 
+plot(byInterval, type="l",
+     xlab="Interval",
+     ylab="Number of Steps",
+     main="Daily Activity Pattern")
+```
+
+Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+```{r find the interval w/ max steps}
+byInterval %>%
+    filter(mean == max(mean)) %>%
+    print
+```
 
 ## Imputing missing values
 
